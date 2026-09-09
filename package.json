@@ -1,0 +1,60 @@
+{
+  "name": "hypergraph-vscode",
+  "displayName": "Hypergraph",
+  "description": "View the Hypergraph inside VS Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "hypergraph.openPanel",
+        "title": "Hypergraph: Open",
+        "icon": "$(circuit-board)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "hypergraph-sidebar",
+          "title": "Hypergraph",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "hypergraph-sidebar": [
+        {
+          "type": "webview",
+          "id": "hypergraph.sidebarView",
+          "name": "Hypergraph Mini",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Hypergraph",
+      "properties": {
+        "hypergraph.url": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL of the Hypergraph site to embed."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

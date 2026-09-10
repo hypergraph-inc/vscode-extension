@@ -17,3 +17,9 @@ This extension surfaces a running Hypergraph instance in a VS Code sidebar panel
 4. A list of recent connections to your account, or an overview of your agents.
 
 5. Concurrent algorithms running across two different sections of a hypergraph, viewed side-by-side simulteaneously.
+
+![hex-r4 + AI chat](hex+chat_2.png) 
+
+![explorer + file](explorer_positions.png) 
+
+![biology + 3 panes](biology.png)

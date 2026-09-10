@@ -6,7 +6,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -15,6 +17,14 @@
         "command": "hypergraph.openPanel",
         "title": "Hypergraph: Open",
         "icon": "$(circuit-board)"
+      },
+      {
+        "command": "hypergraph.pairDevice",
+        "title": "Hypergraph: Pair Device with Account"
+      },
+      {
+        "command": "hypergraph.signOut",
+        "title": "Hypergraph: Forget Device Pairing"
       }
     ],
     "viewsContainers": {
@@ -53,8 +63,8 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "@types/vscode": "^1.85.0",
-    "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
   }
 }

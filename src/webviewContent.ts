@@ -1,4 +1,5 @@
-export function getWebviewContent(url: string): string {
+export function getWebviewContent(url: string, ticket?: string): string {
+  const src = ticket ? `${url}?t=${encodeURIComponent(ticket)}` : url;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,7 +11,7 @@ export function getWebviewContent(url: string): string {
   </style>
 </head>
 <body>
-  <iframe src="${url}" allow="clipboard-read; clipboard-write"></iframe>
+  <iframe src="${src}" allow="clipboard-read; clipboard-write"></iframe>
 </body>
 </html>`;
 }

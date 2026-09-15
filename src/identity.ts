@@ -10,6 +10,37 @@ export interface Identity {
   pubkey: string;
 }
 
+const REFRESH_MS = 7 * 60 * 1000;
+
+export function serveIdentity(
+  webview: vscode.Webview,
+  context: vscode.ExtensionContext,
+  origin: string,
+): vscode.Disposable {
+  const push = async () => {
+    try {
+      const identity = await authenticate(context, origin);
+      await webview.postMessage({
+        type: "hypergraph.identity",
+        ticket: identity.ticket,
+        token: identity.token,
+      });
+    } catch {
+      // A refused refresh leaves the current ticket in place until the next tick.
+    }
+  };
+
+  const timer = setInterval(() => { void push(); }, REFRESH_MS);
+  const listener = webview.onDidReceiveMessage((msg) => {
+    if (msg && msg.type === "hypergraph.identity.request") void push();
+  });
+
+  return new vscode.Disposable(() => {
+    clearInterval(timer);
+    listener.dispose();
+  });
+}
+
 async function loadOrMintKeyPair(context: vscode.ExtensionContext) {
   const stored = await context.secrets.get(SECRET_KEY);
   if (stored) {

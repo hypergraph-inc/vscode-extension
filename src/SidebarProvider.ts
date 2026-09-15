@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
 import { getWebviewContent } from "./webviewContent";
-import { authenticate, Identity } from "./identity";
-
-let cachedIdentity: Identity | null = null;
+import { authenticate, serveIdentity } from "./identity";
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   constructor(private readonly _extensionUri: vscode.Uri, private readonly context: vscode.ExtensionContext) {}
@@ -16,15 +14,18 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     const url = vscode.workspace.getConfiguration("hypergraph").get<string>("url", "https://hypergraph.digital");
 
     let ticket: string | undefined;
+    let token: string | undefined;
     try {
-      if (!cachedIdentity) {
-        cachedIdentity = await authenticate(this.context, url);
-      }
-      ticket = cachedIdentity.ticket;
+      const identity = await authenticate(this.context, url);
+      ticket = identity.ticket;
+      token = identity.token;
     } catch {
       // If authentication fails, load without a ticket
     }
 
-    webviewView.webview.html = getWebviewContent(url, ticket);
+    webviewView.webview.html = getWebviewContent(url, ticket, token);
+
+    const pump = serveIdentity(webviewView.webview, this.context, url);
+    webviewView.onDidDispose(() => pump.dispose());
   }
 }

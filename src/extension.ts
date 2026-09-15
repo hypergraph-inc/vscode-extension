@@ -45,14 +45,19 @@ export function activate(context: vscode.ExtensionContext) {
         );
 
         let ticket: string | undefined;
+        let token: string | undefined;
         try {
           const identity = await import("./identity").then(m => m.authenticate(context, url));
           ticket = identity.ticket;
+          token = identity.token;
         } catch {
           // If authentication fails, load without a ticket
         }
 
-        panel.webview.html = getWebviewContent(url, ticket);
+        panel.webview.html = getWebviewContent(url, ticket, token);
+
+        const pump = await import("./identity").then(m => m.serveIdentity(panel.webview, context, url));
+        panel.onDidDispose(() => pump.dispose());
       } catch(e) {
         // console.error('')
       }

@@ -11,12 +11,23 @@ export interface Identity {
 }
 
 const REFRESH_MS = 7 * 60 * 1000;
+const RETRY_MS = 1 * 60 * 1000;
 
 export function serveIdentity(
   webview: vscode.Webview,
   context: vscode.ExtensionContext,
   origin: string,
 ): vscode.Disposable {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let failures = 0;
+  let warned = false;
+  let stopped = false;
+
+  const arm = (ms: number) => {
+    if (timer) clearTimeout(timer);
+    timer = stopped ? undefined : setTimeout(() => { void push(); }, ms);
+  };
+
   const push = async () => {
     try {
       const identity = await authenticate(context, origin);
@@ -25,18 +36,29 @@ export function serveIdentity(
         ticket: identity.ticket,
         token: identity.token,
       });
+      failures = 0;
+      warned = false;
     } catch {
-      // A refused refresh leaves the current ticket in place until the next tick.
+      failures += 1;
+      if (failures >= 2 && !warned) {
+        warned = true;
+        vscode.window.showWarningMessage(
+          `Hypergraph: cannot reach ${origin} to refresh this view's ticket — it is running signed out until the connection comes back.`,
+        );
+      }
     }
+    arm(failures ? RETRY_MS : REFRESH_MS);
   };
 
-  const timer = setInterval(() => { void push(); }, REFRESH_MS);
+  arm(REFRESH_MS);
+
   const listener = webview.onDidReceiveMessage((msg) => {
     if (msg && msg.type === "hypergraph.identity.request") void push();
   });
 
   return new vscode.Disposable(() => {
-    clearInterval(timer);
+    stopped = true;
+    if (timer) clearTimeout(timer);
     listener.dispose();
   });
 }

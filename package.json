@@ -51,8 +51,9 @@
       "properties": {
         "hypergraph.url": {
           "type": "string",
-          "default": "http://localhost:3000",
-          "description": "URL of the Hypergraph site to embed."
+          "default": "https://hypergraph.digital",
+          "scope": "machine-overridable",
+          "description": "Origin of the Hypergraph client to embed. Machine-scoped: a workspace cannot redirect this extension at another server."
         }
       }
     }

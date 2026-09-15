@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { getWebviewContent } from "./webviewContent";
 import { authenticate, serveIdentity } from "./identity";
+import { serverOrigin } from "./config";
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   constructor(private readonly _extensionUri: vscode.Uri, private readonly context: vscode.ExtensionContext) {}
@@ -11,21 +12,23 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this._extensionUri],
     };
 
-    const url = vscode.workspace.getConfiguration("hypergraph").get<string>("url", "https://hypergraph.digital");
+    const origin = serverOrigin();
 
     let ticket: string | undefined;
     let token: string | undefined;
     try {
-      const identity = await authenticate(this.context, url);
+      const identity = await authenticate(this.context, origin);
       ticket = identity.ticket;
       token = identity.token;
-    } catch {
-      // If authentication fails, load without a ticket
+    } catch (err: any) {
+      vscode.window.showWarningMessage(
+        `Hypergraph: signed out — could not authenticate with ${origin} (${err && err.message}).`,
+      );
     }
 
-    webviewView.webview.html = getWebviewContent(url, ticket, token);
+    webviewView.webview.html = getWebviewContent(origin, ticket, token);
 
-    const pump = serveIdentity(webviewView.webview, this.context, url);
+    const pump = serveIdentity(webviewView.webview, this.context, origin);
     webviewView.onDidDispose(() => pump.dispose());
   }
 }

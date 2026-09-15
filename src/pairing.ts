@@ -1,14 +1,9 @@
 import * as vscode from "vscode";
 import { authenticate } from "./identity";
+import { serverOrigin } from "./config";
 
 const PAIRED_KEY = "hypergraph.paired";
 const ACCOUNT_KEY = "hypergraph.account";
-
-const originOf = (url: string) => url.replace(/\/+$/, "");
-
-function serverOrigin(): string {
-  return originOf(vscode.workspace.getConfiguration("hypergraph").get<string>("url", "https://hypergraph.digital"));
-}
 
 export function isPaired(context: vscode.ExtensionContext): boolean {
   return !!context.globalState.get<boolean>(PAIRED_KEY);

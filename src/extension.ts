@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { SidebarProvider } from "./SidebarProvider";
 import { getWebviewContent } from "./webviewContent";
 import { forgetPairing, pairDevice, pairedAccount, promptToPairIfNeeded } from "./pairing";
+import { authenticate, serveIdentity } from "./identity";
+import { serverOrigin } from "./config";
 
 export function activate(context: vscode.ExtensionContext) {
   const sidebarProvider = new SidebarProvider(context.extensionUri, context);
@@ -31,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("hypergraph.openPanel", async () => {
-      const url = vscode.workspace.getConfiguration("hypergraph").get<string>("url", "https://hypergraph.digital");
+      const origin = serverOrigin();
 
       try {
         const panel = vscode.window.createWebviewPanel(
@@ -47,26 +49,25 @@ export function activate(context: vscode.ExtensionContext) {
         let ticket: string | undefined;
         let token: string | undefined;
         try {
-          const identity = await import("./identity").then(m => m.authenticate(context, url));
+          const identity = await authenticate(context, origin);
           ticket = identity.ticket;
           token = identity.token;
-        } catch {
-          // If authentication fails, load without a ticket
+        } catch (err: any) {
+          vscode.window.showWarningMessage(
+            `Hypergraph: signed out — could not authenticate with ${origin} (${err && err.message}).`,
+          );
         }
 
-        panel.webview.html = getWebviewContent(url, ticket, token);
+        panel.webview.html = getWebviewContent(origin, ticket, token);
 
-        const pump = await import("./identity").then(m => m.serveIdentity(panel.webview, context, url));
+        const pump = serveIdentity(panel.webview, context, origin);
         panel.onDidDispose(() => pump.dispose());
-      } catch(e) {
-        // console.error('')
+      } catch (err: any) {
+        vscode.window.showErrorMessage(`Hypergraph: could not open the panel — ${err && err.message}`);
+        return;
       }
 
-      try {
-        void promptToPairIfNeeded(context);
-      } catch {
-        //
-      }
+      void promptToPairIfNeeded(context);
     })
   );
 }

@@ -4,12 +4,17 @@ import { getWebviewContent } from "./webviewContent";
 import { forgetPairing, pairDevice, pairedAccount, promptToPairIfNeeded } from "./pairing";
 import { authenticate, serveIdentity } from "./identity";
 import { serverOrigin } from "./config";
+import { getChannel, log, logError } from "./log";
 
 export function activate(context: vscode.ExtensionContext) {
+  log("activate() called");
+  context.subscriptions.push(getChannel());
+
   const sidebarProvider = new SidebarProvider(context.extensionUri, context);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("hypergraph.sidebarView", sidebarProvider)
   );
+  log("registered webview view provider for hypergraph.sidebarView");
 
   context.subscriptions.push(
     vscode.commands.registerCommand("hypergraph.pairDevice", () => pairDevice(context))
@@ -33,7 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("hypergraph.openPanel", async () => {
+      log("hypergraph.openPanel invoked");
       const origin = serverOrigin();
+      log(`resolved server origin: ${origin}`);
 
       try {
         const panel = vscode.window.createWebviewPanel(
@@ -45,6 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
             retainContextWhenHidden: true,
           }
         );
+        log("createWebviewPanel succeeded");
 
         let ticket: string | undefined;
         let token: string | undefined;
@@ -52,17 +60,24 @@ export function activate(context: vscode.ExtensionContext) {
           const identity = await authenticate(context, origin);
           ticket = identity.ticket;
           token = identity.token;
+          log(`authenticate() succeeded (ticket present: ${!!ticket}, token present: ${!!token})`);
         } catch (err: any) {
+          logError(`authenticate() failed against ${origin}`, err);
           vscode.window.showWarningMessage(
             `Hypergraph: signed out — could not authenticate with ${origin} (${err && err.message}).`,
           );
         }
 
         panel.webview.html = getWebviewContent(origin, ticket, token);
+        log("panel.webview.html assigned");
 
         const pump = serveIdentity(panel.webview, context, origin);
-        panel.onDidDispose(() => pump.dispose());
+        panel.onDidDispose(() => {
+          log("panel disposed");
+          pump.dispose();
+        });
       } catch (err: any) {
+        logError("could not open the panel", err);
         vscode.window.showErrorMessage(`Hypergraph: could not open the panel — ${err && err.message}`);
         return;
       }

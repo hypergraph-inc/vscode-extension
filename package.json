@@ -1,16 +1,43 @@
 {
-  "name": "hypergraph-vscode",
+  "name": "hypergraph-vscode-extension",
   "displayName": "Hypergraph",
   "description": "View the Hypergraph inside VS Code",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "author": "Zackary <zackary@hypergraph.digital> (https://zackary.dev)",
+  "repository": {
+    "type": "git",
+    "directory": "vscode-extension",
+    "url": "https://github.com/hypergraph-inc/vscode-extension"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Visualization"
   ],
+  "keywords": [
+    "hypergraph",
+    "graph-visualization",
+    "data-flow",
+    "canvas",
+    "webview",
+    "interactive-diagram"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "prepack": "vsce package",
+    "watch": "tsc -watch -p ./"
+  },
   "activationEvents": [],
   "main": "./out/extension.js",
+  "files": [
+    "out/**/*.js",
+    "media/**/*",
+    "*.png",
+    "LICENSE",
+    "README.md"
+  ],
   "contributes": {
     "commands": [
       {
@@ -57,11 +84,6 @@
         }
       }
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

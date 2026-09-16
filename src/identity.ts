@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import * as crypto from "node:crypto";
 import * as vscode from "vscode";
+import { log, logError } from "./log";
 
 const SECRET_KEY = "hypergraph.deviceKey";
 
@@ -36,10 +37,12 @@ export function serveIdentity(
         ticket: identity.ticket,
         token: identity.token,
       });
+      log(`serveIdentity: pushed refreshed identity to webview for ${origin}`);
       failures = 0;
       warned = false;
-    } catch {
+    } catch (err) {
       failures += 1;
+      logError(`serveIdentity: push failed for ${origin} (failure #${failures})`, err);
       if (failures >= 2 && !warned) {
         warned = true;
         vscode.window.showWarningMessage(
@@ -54,6 +57,7 @@ export function serveIdentity(
 
   const listener = webview.onDidReceiveMessage((msg) => {
     if (msg && msg.type === "hypergraph.identity.request") void push();
+    if (msg && msg.type === "hypergraph.debug") log(`webview: ${msg.message}`);
   });
 
   return new vscode.Disposable(() => {

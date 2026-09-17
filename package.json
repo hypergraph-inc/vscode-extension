@@ -2,7 +2,7 @@
   "name": "hypergraph-vscode-extension",
   "displayName": "Hypergraph",
   "description": "View the Hypergraph inside VS Code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Zackary <zackary@hypergraph.digital> (https://zackary.dev)",
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
     "interactive-diagram"
   ],
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "yarn compile",
     "compile": "tsc -p ./",
     "prepack": "vsce package",
     "watch": "tsc -watch -p ./"

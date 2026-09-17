@@ -1,26 +1,40 @@
 import { randomBytes } from "node:crypto";
+import type { AccountIdentity } from "./identity";
 import { log } from "./log";
 
 export const ORIGIN_RE = /^https?:\/\/(\[[0-9a-f:]+\]|[a-z0-9.\-]+)(:\d{1,5})?$/;
 
-export function getWebviewContent(origin: string, ticket?: string, token?: string): string {
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function statusHtml(title: string, lines: string[]): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+  <style>body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background-color: var(--vscode-editor-background); padding: 12px; }</style>
+</head>
+<body>
+  <p><strong>${escapeHtml(title)}</strong></p>
+  ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("\n  ")}
+</body>
+</html>`;
+}
+
+export function getWebviewContent(origin: string, identity: AccountIdentity): string {
   if (!ORIGIN_RE.test(origin)) {
     log(`getWebviewContent: rejecting origin that fails ORIGIN_RE: ${origin}`);
     throw new Error(`refusing to embed ${origin}`);
   }
 
   const target = new URL(origin);
-  if (ticket) {
-    target.searchParams.set("t", ticket);
-    if (token) target.searchParams.set("d", token);
-  }
+  target.searchParams.set("t", identity.ticket);
+  target.searchParams.set("d", identity.account);
 
   const nonce = randomBytes(16).toString("base64");
   const src = target.toString().replace(/&/g, "&amp;");
-  log(
-    `getWebviewContent: built iframe src for origin ${target.origin}${target.pathname} ` +
-      `(ticket in query: ${!!ticket}, token in query: ${!!token})`,
-  );
+  log(`getWebviewContent: built iframe src for ${target.origin}${target.pathname} as account ${identity.account.slice(0, 8)}`);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

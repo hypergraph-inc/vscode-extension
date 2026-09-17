@@ -1,88 +1,65 @@
 import * as vscode from "vscode";
 import { SidebarProvider } from "./SidebarProvider";
-import { getWebviewContent } from "./webviewContent";
-import { forgetPairing, pairDevice, pairedAccount, promptToPairIfNeeded } from "./pairing";
-import { authenticate, serveIdentity } from "./identity";
+import { requireAccount } from "./pairing";
+import { authenticate, forgetDeviceKey } from "./identity";
 import { serverOrigin } from "./config";
-import { getChannel, log, logError } from "./log";
+import { Mount, remountAll, signOutAll } from "./mount";
+import { getChannel, log } from "./log";
+
+function detachedMessage(err: unknown): string {
+  return `Hypergraph: not connected to an account — ${err instanceof Error ? err.message : String(err)}`;
+}
 
 export function activate(context: vscode.ExtensionContext) {
   log("activate() called");
   context.subscriptions.push(getChannel());
 
-  const sidebarProvider = new SidebarProvider(context.extensionUri, context);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("hypergraph.sidebarView", sidebarProvider)
+    vscode.window.registerWebviewViewProvider("hypergraph.sidebarView", new SidebarProvider(context.extensionUri, context))
   );
-  log("registered webview view provider for hypergraph.sidebarView");
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("hypergraph.pairDevice", () => pairDevice(context))
+    vscode.commands.registerCommand("hypergraph.pairDevice", async () => {
+      try {
+        const identity = await requireAccount(context, serverOrigin());
+        vscode.window.showInformationMessage(`Hypergraph: this device is on account ${identity.account.slice(0, 8)}`);
+        remountAll();
+      } catch (err) {
+        vscode.window.showErrorMessage(detachedMessage(err));
+      }
+    })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("hypergraph.signOut", async () => {
-      const account = pairedAccount(context);
-      if (!account) {
-        vscode.window.showInformationMessage("Hypergraph: this device is not paired with an account.");
-        return;
-      }
+      const origin = serverOrigin();
+      const identity = await authenticate(context, origin).catch(() => null);
+      const on = identity && identity.account ? ` from account ${identity.account.slice(0, 8)}` : "";
       const confirm = await vscode.window.showWarningMessage(
-        `Forget this device's pairing with account ${account.slice(0, 8)}? The device stays enrolled on the server until removed there too.`,
+        `Forget this device's key${on}? The next open pairs a new key. The old key stays a member on the server until removed there.`,
         { modal: true },
-        "Forget pairing",
+        "Forget key",
       );
-      if (confirm === "Forget pairing") await forgetPairing(context);
+      if (confirm !== "Forget key") return;
+      await forgetDeviceKey(context);
+      signOutAll("this device's key was forgotten");
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("hypergraph.openPanel", async () => {
-      log("hypergraph.openPanel invoked");
-      const origin = serverOrigin();
-      log(`resolved server origin: ${origin}`);
-
-      try {
-        const panel = vscode.window.createWebviewPanel(
-          "hypergraphPanel",
-          "Hypergraph",
-          vscode.ViewColumn.Active,
-          {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-          }
-        );
-        log("createWebviewPanel succeeded");
-
-        let ticket: string | undefined;
-        let token: string | undefined;
-        try {
-          const identity = await authenticate(context, origin);
-          ticket = identity.ticket;
-          token = identity.token;
-          log(`authenticate() succeeded (ticket present: ${!!ticket}, token present: ${!!token})`);
-        } catch (err: any) {
-          logError(`authenticate() failed against ${origin}`, err);
-          vscode.window.showWarningMessage(
-            `Hypergraph: signed out — could not authenticate with ${origin} (${err && err.message}).`,
-          );
+      const panel = vscode.window.createWebviewPanel(
+        "hypergraphPanel",
+        "Hypergraph",
+        vscode.ViewColumn.Active,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
         }
-
-        panel.webview.html = getWebviewContent(origin, ticket, token);
-        log("panel.webview.html assigned");
-
-        const pump = serveIdentity(panel.webview, context, origin);
-        panel.onDidDispose(() => {
-          log("panel disposed");
-          pump.dispose();
-        });
-      } catch (err: any) {
-        logError("could not open the panel", err);
-        vscode.window.showErrorMessage(`Hypergraph: could not open the panel — ${err && err.message}`);
-        return;
-      }
-
-      void promptToPairIfNeeded(context);
+      );
+      const mount = new Mount(panel.webview, context);
+      panel.onDidDispose(() => mount.dispose());
+      await mount.render();
     })
   );
 }

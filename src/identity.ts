@@ -9,6 +9,11 @@ export interface Identity {
   token: string;
   ticket: string;
   pubkey: string;
+  account: string | null;
+}
+
+export interface AccountIdentity extends Identity {
+  account: string;
 }
 
 const REFRESH_MS = 7 * 60 * 1000;
@@ -18,6 +23,7 @@ export function serveIdentity(
   webview: vscode.Webview,
   context: vscode.ExtensionContext,
   origin: string,
+  onDetached: () => void,
 ): vscode.Disposable {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let failures = 0;
@@ -32,10 +38,16 @@ export function serveIdentity(
   const push = async () => {
     try {
       const identity = await authenticate(context, origin);
+      if (!identity.account) {
+        logError(`serveIdentity: device ${identity.token.slice(0, 10)} is no longer on an account`);
+        stopped = true;
+        onDetached();
+        return;
+      }
       await webview.postMessage({
         type: "hypergraph.identity",
         ticket: identity.ticket,
-        token: identity.token,
+        token: identity.account,
       });
       log(`serveIdentity: pushed refreshed identity to webview for ${origin}`);
       failures = 0;
@@ -88,12 +100,10 @@ function pubkeyHex(publicKey: crypto.KeyObject): string {
   ]).toString("hex");
 }
 
-// The VS Code extension host has no passkey access, so it authenticates the
-// same way the companion CLI does: an ephemeral device keypair signs a
-// server-issued challenge. The resulting token is a device identity — see
-// server/account-store.mjs's KIND_DEVICE — which starts out owning its own
-// anonymous world and only becomes part of the user's account once paired
-// through /device/pair (see pairing.ts).
+export async function forgetDeviceKey(context: vscode.ExtensionContext): Promise<void> {
+  await context.secrets.delete(SECRET_KEY);
+}
+
 export async function authenticate(context: vscode.ExtensionContext, origin: string): Promise<Identity> {
   const { privateKey, publicKey } = await loadOrMintKeyPair(context);
   const pubkey = pubkeyHex(publicKey);
@@ -111,8 +121,11 @@ export async function authenticate(context: vscode.ExtensionContext, origin: str
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ challenge: challenge.challenge, pubkey, signature, kind: "device" }),
   });
-  const answer = (await ar.json()) as { ok: boolean; token: string; ticket: string; error?: string };
+  const answer = (await ar.json()) as {
+    ok: boolean; token: string; ticket: string; account?: string | null; error?: string;
+  };
   if (!answer.ok) throw new Error(`identity: authentication refused (${answer.error})`);
+  if (!answer.token || !answer.ticket) throw new Error("identity: server accepted the key but sent no token or ticket");
 
-  return { token: answer.token, ticket: answer.ticket, pubkey };
+  return { token: answer.token, ticket: answer.ticket, pubkey, account: answer.account || null };
 }
